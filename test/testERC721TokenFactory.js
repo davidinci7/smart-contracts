@@ -17,7 +17,8 @@ describe("Testing Factory ERC721Token", function () {
             var tx = await erc721TokenFactory.createNewERC721Token('CoiniNFT', 'COI', "exampleOfBaseURI");
             var count = await erc721TokenFactory.erc721TokenCount();
             var index = Number(count) - 1;
-            await expect(tx).to.emit(erc721TokenFactory, "NewERC721Token").withArgs(await erc721TokenFactory.erc721TokenArray(index));
+
+            await expect(tx).to.emit(erc721TokenFactory, "NewERC721Token").withArgs(await erc721TokenFactory.erc721TokenArray(index), index);
         });
 
         it("Validate ERC721Token address", async function () {
@@ -26,6 +27,7 @@ describe("Testing Factory ERC721Token", function () {
             var count = await erc721TokenFactory.erc721TokenCount();
             var index = Number(count) - 1;
             var erc721Contract = await ethers.getContractAt('ERC721Token', await erc721TokenFactory.erc721TokenArray(index));
+
             expect(await erc721Contract.getAddress()).to.be.equal(await erc721TokenFactory.erc721TokenArray(index));
         });
 
@@ -34,8 +36,45 @@ describe("Testing Factory ERC721Token", function () {
             await erc721TokenFactory.createNewERC721Token('CoiniToken', 'CTK', "exampleOfBaseURI");
             var count = await erc721TokenFactory.erc721TokenCount();
             var index = Number(count) - 1;
-            var nftTx = await erc721TokenFactory.callSafeMint(index, alice.address, 0);
-            expect(nftTx).to.emit(erc721TokenFactory, "NewNftMinted").withArgs(index, alice.address, 0);
+            var nftTx = await erc721TokenFactory.callSafeMint(await erc721TokenFactory.erc721TokenArray(index), alice.address, 0, "Example");
+
+            expect(nftTx).to.emit(erc721TokenFactory, "NewNftMinted").withArgs(await erc721TokenFactory.erc721TokenArray(index), alice.address, 0, "Example");
+        });
+
+        it("Validate OwnerOf", async function () {
+            const { erc721TokenFactory, alice} = await loadFixture(deployFactory);
+            await erc721TokenFactory.createNewERC721Token('CoiniToken', 'CTK', "exampleOfBaseURI");
+            var count = await erc721TokenFactory.erc721TokenCount();
+            var index = Number(count) - 1;
+
+            await erc721TokenFactory.callSafeMint(await erc721TokenFactory.erc721TokenArray(index), alice.address, 0, "Example");
+
+            expect(await erc721TokenFactory.callOwnerOf(await erc721TokenFactory.erc721TokenArray(index), 0)).to.be.equal(alice.address);
+        });
+
+        it("Validate Safe Transfer", async function () {
+            const { erc721TokenFactory, owner, alice} = await loadFixture(deployFactory);
+            await erc721TokenFactory.createNewERC721Token('CoiniToken', 'CTK', "exampleOfBaseURI");
+            var count = await erc721TokenFactory.erc721TokenCount();
+            var index = Number(count) - 1;
+
+            await erc721TokenFactory.callSafeMint(await erc721TokenFactory.erc721TokenArray(index), owner.address, 0, "Example");
+            await erc721TokenFactory.callSafeTransfer(await erc721TokenFactory.erc721TokenArray(index), owner.address, alice.address, 0);
+
+            expect(await erc721TokenFactory.callOwnerOf(await erc721TokenFactory.erc721TokenArray(index), 0)).to.be.equal(alice.address);
+        });
+
+        it("Validate Burning", async function () {
+            const { erc721TokenFactory, owner, alice} = await loadFixture(deployFactory);
+            await erc721TokenFactory.createNewERC721Token('CoiniToken', 'CTK', "exampleOfBaseURI");
+            var count = await erc721TokenFactory.erc721TokenCount();
+            var index = Number(count) - 1;
+            await erc721TokenFactory.callSafeMint(await erc721TokenFactory.erc721TokenArray(index), alice.address, 0, "Example");
+            await erc721TokenFactory.callBurn(await erc721TokenFactory.erc721TokenArray(index), alice.address, 0);
+
+            var nft = await ethers.getContractAt('ERC721', await erc721TokenFactory.erc721TokenArray(index));
+            
+            expect(await nft.balanceOf(alice.address)).to.be.equal(0);
         });
     });
 });
